@@ -243,7 +243,7 @@ class Closed(State):
 
     def event_start(self) -> None:
         closed_logger.debug("Event has been triggered.")
-
+        self.association.connect()
         self.set_wait_conn_ack_state()
 
 
