@@ -15,7 +15,6 @@ import logging
 import random
 import selectors
 import socket
-import time
 import threading
 from typing import Any, Literal
 
@@ -28,7 +27,6 @@ tcp_server = logging.getLogger("TcpServer")
 
 class TcpConnection():
     def __init__(self, ip_address: str, port: str) -> None:
-        self._thread = None
         self._recv_buffer = b""
         self._send_buffer = b""
         self.send_data_stream_queued = False
@@ -80,7 +78,8 @@ class TcpConnection():
 
     def close(self) -> None:
         if not self.is_connected:
-            return
+            raise ConnectionError("There is no transport connection up for "\
+                                  "this PeerNode")
 
         self.is_connected = False
         try:
@@ -104,33 +103,26 @@ class TcpConnection():
         if not self.is_connected:
             raise ConnectionError(f"[Socket-{self.sock_id}] There is no "\
                                   f"transport connection up for this Peer")
-        self._thread = threading.Thread(name="transport_layer_thread", target=self._run)
-        self._thread.start()
-
-    def reconnect(self):
-        """ Reconect the socket. For server, this should be a sleep 1 """
-        time.sleep(1)
+        threading.Thread(name="transport_layer_thread", 
+                         target=self._run).start()
 
 
     def _run(self) -> None:
-        while not self._stop_threads:
-            if self.is_connected:
-                self.events = self.selector.select(timeout=TRACKING_SOCKET_EVENTS_TIMEOUT)
-                self.tracking_events_count += TRACKING_SOCKET_EVENTS_TIMEOUT
+        while self.is_connected and not self._stop_threads:
+            self.events = self.selector.select(timeout=TRACKING_SOCKET_EVENTS_TIMEOUT)
+            self.tracking_events_count += TRACKING_SOCKET_EVENTS_TIMEOUT
 
-                for key, mask in self.events:
-                    if key.data is not None:
-                        self.data_stream += key.data
+            for key, mask in self.events:
+                if key.data is not None:
+                    self.data_stream += key.data
 
-                    if mask & selectors.EVENT_WRITE:
-                        tcp_connection.debug(f"Selector notified EVENT_WRITE")
-                        self.write()
+                if mask & selectors.EVENT_WRITE:
+                    tcp_connection.debug(f"Selector notified EVENT_WRITE")
+                    self.write()
 
-                    if mask & selectors.EVENT_READ:
-                        tcp_connection.debug(f"Selector notified EVENT_READ")
-                        self.read()
-            else:
-                self.reconnect()
+                if mask & selectors.EVENT_READ:
+                    tcp_connection.debug(f"Selector notified EVENT_READ")
+                    self.read()
 
 
     def _set_selector_events_mask(self, mode: Literal["r", "w", "rw"], msg: Any = None) -> None:
@@ -322,9 +314,9 @@ class SctpConnection(TcpConnection):
 class TcpClient(TcpConnection):
     def __init__(self, ip_address: str, port: str) -> None:
         super().__init__(ip_address, port)
-        self.setup()
 
-    def setup(self) -> None:
+
+    def start(self) -> None:
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             tcp_client.debug(f"[Socket-{self.sock_id}] Client-side Socket: "\
@@ -345,19 +337,6 @@ class TcpClient(TcpConnection):
 
         except Exception as e:
             tcp_client.exception(f"client_errors: {e.args}")
-
-    def reconnect(self):
-        if self.sock:
-            try:
-                self.sock.close()
-                self.selector.unregister(self.sock)
-            except:
-                pass
-            finally:
-                del self.sock
-
-        self.setup()
-
 
 
 class SctpClient(TcpClient,SctpConnection):
