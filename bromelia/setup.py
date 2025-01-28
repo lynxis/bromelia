@@ -101,7 +101,7 @@ class DiameterAssociation(object):
         self._recv_messages = queue.Queue()
         self._send_messages = queue.Queue()
 
-        self.postprocess_recv_messages = queue.Queue() 
+        self.postprocess_recv_messages = queue.Queue()
         self.postprocess_recv_messages_ready = threading.Event()
         self.postprocess_recv_messages_lock = threading.Lock()
         self.lock = threading.Lock()
@@ -341,7 +341,7 @@ class DiameterAssociation(object):
                 diameter_conn_logger.debug("Generating a DWR message.")
 
                 self.transport.tracking_events_count = 0
-        
+
         except AttributeError as e:
             if e.args[0] == "'TcpServer' object has no attribute 'events'":
                 pass
