@@ -169,6 +169,7 @@ class DiameterAssociation(object):
             self.lock.acquire()
 
             if self.transport is None:
+                self.lock.release()
                 break
 
             data_stream = copy.copy(self.transport._recv_data_stream)

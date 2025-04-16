@@ -93,10 +93,25 @@ def make_logging(msg):
 
 
 class State():
+    timeout = 0
+
     def __init__(self, diameter_association) -> None:
         self.association = diameter_association
         self.processor = BaseMessageProcessor(diameter_association)
+        # To calculate the timeout. When this state was created/entered
+        self._time_entered = time.monotonic()
+        self.next_state = None
 
+    def check_timeout(self):
+        if not getattr(self, 'event_timeout', None) or not self.timeout:
+            return False
+
+        timeout = (self._time_entered + self.timeout)
+        now = time.monotonic()
+        if now > timeout:
+            self.event_timeout()
+            return True
+        return False
 
     def run(self) -> None:
         assert(0, "Function not implemented.")
@@ -257,6 +272,8 @@ class Closed(State):
 
 
 class WaitConnAck(State):
+    timeout = 10
+
     def run(self) -> None:
         self.set_wait_conn_ack_state(set_name=True)
 
@@ -303,6 +320,8 @@ class WaitConnAck(State):
 
 
 class WaitInitiatorCEA(State):
+    timeout = 10
+
     def run(self) -> None:
         self.set_wait_initiator_cea_state(set_name=True)
 
@@ -350,7 +369,7 @@ class WaitInitiatorCEA(State):
 
     def event_timeout(self) -> None:
         """ It needs to be coded """
-        wait_initiator_cea_logger.debug("Event has been triggered.")
+        wait_initiator_cea_logger.debug("Closing connection because of timeout.")
 
         self.set_closed_state()
 
@@ -522,22 +541,22 @@ class PeerStateMachine():
     def _load_states(self) -> None:
         statemachine_logger.debug("Loading available states.")
         self.states = {
-                        CLOSED: Closed(self.association),
-                        WAIT_CONN_ACK: WaitConnAck(self.association),
-                        WAIT_I_CEA: WaitInitiatorCEA(self.association),
-                        OPEN: Open(self.association),
-                        WAIT_RETURNS: WaitReturns(self.association),
-                        WAIT_CONN_ACK_ELECT: WaitConnAckElect(self.association),
-                        CLOSING: Closing(self.association),
+                        CLOSED: Closed,
+                        WAIT_CONN_ACK: WaitConnAck,
+                        WAIT_I_CEA: WaitInitiatorCEA,
+                        OPEN: Open,
+                        WAIT_RETURNS: WaitReturns,
+                        WAIT_CONN_ACK_ELECT: WaitConnAckElect,
+                        CLOSING: Closing,
         }
 
-        self.current_state = self.states[CLOSED]
+        self.current_state = self.states[CLOSED](self.association)
         self.is_running = False
 
 
     def get_next_state(self, next_state: str) -> Any:
         if next_state == CLOSED and self.current_state.name == CLOSED:
-            return self.states[CLOSED]
+            return self.states[CLOSED](self.association)
 
         elif next_state == CLOSED and self.current_state.name != CLOSED:
             self.is_running = False
@@ -549,7 +568,7 @@ class PeerStateMachine():
                                          f"{self.current_state.name.upper()} "\
                                          f"to {next_state.upper()} state.")
 
-            return self.states[next_state]
+            return self.states[next_state](self.association)
 
         else:
             raise TypeError("Input not supported for current state.")        
@@ -569,10 +588,15 @@ class PeerStateMachine():
         while (self.is_running and not self.association.error_has_raised):
             time.sleep(STATE_MACHINE_TICKER)
 
-            self.current_state.run()
-            _state = self.current_state.next_state
-            self.current_state = self.get_next_state(_state)
-
+            timeout = self.current_state.check_timeout()
+            if not timeout:
+                self.current_state.run()
+            next_state = self.current_state.next_state
+            # keep the current state if there is no new state.
+            # Allows to not initiate a state transistion.
+            # FIXME: next_state = self.current_state.name prevents state transistion into own state
+            if next_state is not None and next_state != self.current_state.name:
+                self.current_state = self.get_next_state(next_state)
 
     def close(self) -> None:
         statemachine_logger.debug("Closing PeerStateMachine's thread.")
