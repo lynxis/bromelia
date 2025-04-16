@@ -50,6 +50,7 @@ class TcpConnection():
 
         tcp_connection.debug(f"Creating Socket with ID {self.sock_id}")
 
+        self.error_has_raised = False
         self._stop_threads = False
 
         self.selector = selectors.DefaultSelector()
@@ -108,7 +109,7 @@ class TcpConnection():
 
 
     def _run(self) -> None:
-        while self.is_connected and not self._stop_threads:
+        while self.is_connected and not self._stop_threads and not self.error_has_raised:
             self.events = self.selector.select(timeout=TRACKING_SOCKET_EVENTS_TIMEOUT)
             self.tracking_events_count += TRACKING_SOCKET_EVENTS_TIMEOUT
 
@@ -127,6 +128,12 @@ class TcpConnection():
 
     def _set_selector_events_mask(self, mode: Literal["r", "w", "rw"], msg: Any = None) -> None:
         self.lock.acquire()
+
+        if self.sock == -1 or self.error_has_raised:
+            # socket is already dead, graceful exit
+            self.lock.release()
+            return
+
         if mode == "r":
             tcp_connection.debug(f"[Socket-{self.sock_id}] Updating "\
                                  f"selector events mask [READ]")
@@ -238,15 +245,13 @@ class TcpConnection():
 
 
     def test_connection(self) -> bool:
-        while True:
-            try:
-                self.sock.send(b"")
-                return True
+        if self.error_has_raised or self._stop_threads:
+            return False
 
-            except OSError as e:
-                if e.args[0] == 10057:
-                    self.connection_attempts -= self.connection_attempts
-                    return False
+        if not self.is_connected:
+            return False
+
+        return True
 
 
 
