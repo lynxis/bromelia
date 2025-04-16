@@ -135,9 +135,7 @@ class State():
 
 
     def notify_postprocess_message(self, msg: Type[DiameterMessage]) -> None:
-        self.association.postprocess_recv_messages_lock.acquire()
         self.association.postprocess_recv_messages.put(msg)
-        self.association.postprocess_recv_messages_lock.release()
 
         self.association.postprocess_recv_messages_ready.set()
 

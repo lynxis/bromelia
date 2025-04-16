@@ -103,7 +103,6 @@ class DiameterAssociation(object):
 
         self.postprocess_recv_messages = queue.Queue() 
         self.postprocess_recv_messages_ready = threading.Event()
-        self.postprocess_recv_messages_lock = threading.Lock()
         self.lock = threading.Lock()
 
 
@@ -294,9 +293,11 @@ class DiameterAssociation(object):
         self.lock.acquire()
         diameter_conn_logger.debug("Acquired DiameterAssociation lock")
 
-        self.postprocess_recv_messages_lock.acquire()
-        msg = self.postprocess_recv_messages.get()
-        self.postprocess_recv_messages_lock.release()
+        try:
+            msg = self.postprocess_recv_messages.get(timeout=1)
+        except queue.Empty, queue.Shutdown:
+            self.lock.release()
+            return None
 
         make_logging(msg)
 
