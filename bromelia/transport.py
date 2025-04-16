@@ -177,6 +177,9 @@ class TcpConnection():
                                      f"{sent} bytes in _send_buffer")
             
             except BlockingIOError:
+                pass
+
+            except:
                 tcp_connection.exception(f"[Socket-{self.sock_id}] An error "\
                                          f"has occurred")
 
