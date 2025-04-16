@@ -10,6 +10,7 @@
     :license: MIT, see LICENSE for more details.
 """
 
+import errno
 import copy
 import logging
 import random
@@ -248,12 +249,7 @@ class TcpConnection():
         if self.error_has_raised or self._stop_threads:
             return False
 
-        if not self.is_connected:
-            return False
-
-        return True
-
-
+        return self.is_connected
 
 import importlib
 class SctpConnection(TcpConnection):
@@ -331,7 +327,14 @@ class TcpClient(TcpConnection):
             tcp_client.debug(f"[Socket-{self.sock_id}] Setting as "\
                              f"Non-Blocking")
 
-            self.sock.connect_ex((self.ip_address, self.port))
+            err_no = self.sock.connect_ex((self.ip_address, self.port))
+            if err_no and err_no != errno.EINPROGRESS:
+                # tcp_client.error(f"[Socket-{self.sock_id}] Connect failed with errno {err_no}.")
+                # self.close() doesn't close the socket when is_connected isn't true.
+                self.sock.close()
+                self.error_has_raised = True
+                raise ConnectionError(f"[Socket-{self.sock_id}] Connect failed with errno {err_no} / {errno.errorcode[err_no]}")
+
             tcp_client.debug(f"[Socket-{self.sock_id}] Connecting to the "\
                              f"Remote Peer")
             self.is_connected = True
