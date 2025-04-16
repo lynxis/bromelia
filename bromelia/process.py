@@ -339,7 +339,7 @@ class ProcessCapabilityExchange():
                 self.checklist_optional_avps += 1
 
 
-        if (self.checklist_mandatory_avps == 5) and (self.checklist_optional_avps >= 0 and self.checklist_optional_avps <= 7):
+        if (self.checklist_mandatory_avps >= 5) and (self.checklist_optional_avps >= 0 and self.checklist_optional_avps <= 7):
             self.is_valid = True
         else:
             self.is_valid = False
@@ -370,7 +370,7 @@ class ProcessCapabilityExchange():
                 self.checklist_optional_avps += 1
 
 
-        if (self.checklist_mandatory_avps == 6) and (self.checklist_optional_avps >= 0 or self.checklist_optional_avps <= 7):
+        if (self.checklist_mandatory_avps >= 6) and (self.checklist_optional_avps >= 0 or self.checklist_optional_avps <= 7):
             self.is_valid = True
         else:
             self.is_valid = False
