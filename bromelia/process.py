@@ -315,7 +315,7 @@ class ProcessCapabilityExchange():
             self.process_answer()
         else:
             """What should we do if find an error?"""
-            pass
+            process_message_logging.error(f"Invalid message? {self.message}")
 
 
     def process_request(self):
