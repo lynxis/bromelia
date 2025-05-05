@@ -339,14 +339,16 @@ class WaitInitiatorCEA(State):
 
 
     def event_open_rcv_cea(self) -> None:
-        wait_initiator_cea_logger.debug("Event has been triggered.")
+        wait_initiator_cea_logger.debug("Event: Received CEA")
 
         if self.processor.is_valid_capability_exchange(msg=self.msg):
             self.set_open_state(early_stage=True)
+        else:
+            wait_initiator_cea_logger.debug("Invalid Cap Exchange!")
 
 
     def event_responder_conn_cer(self) -> None:
-        wait_initiator_cea_logger.debug("Event has been triggered.")
+        wait_initiator_cea_logger.debug("Event: Received Connection CER.")
 
         if self.processor.is_valid_capability_exchange(msg=self.msg):
             self.set_wait_returns_state(early_stage=True)
@@ -354,13 +356,13 @@ class WaitInitiatorCEA(State):
 
     def event_initiator_peer_disc(self) -> None:
         """ It needs to be coded """
-        wait_initiator_cea_logger.debug("Event has been triggered.")
+        wait_initiator_cea_logger.debug("Event: Peer Disc.")
 
         self.set_closed_state()
 
     
     def event_initiator_rcv_non_cea(self) -> None:
-        wait_initiator_cea_logger.debug("Event has been triggered.")
+        wait_initiator_cea_logger.debug("Event: Received Non CEA")
 
         self.set_closed_state()
 
